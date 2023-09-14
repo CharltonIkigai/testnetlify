@@ -1,0 +1,85 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Live OCR with Camera</title>
+</head>
+<body>
+    <h1>Live OCR with Camera</h1>
+
+    <!-- Video element to display the camera feed -->
+    <video id="cameraFeed" autoplay></video>
+
+    <!-- Button to take a picture -->
+    <button id="takePictureButton">Take Picture</button>
+
+    <!-- Button to switch the camera -->
+    <button id="switchCameraButton">Switch Camera</button>
+
+    <!-- Text box to display recognized text -->
+    <textarea id="recognizedText" rows="4" cols="50" placeholder="Recognized Text"></textarea>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.2/tesseract.min.js"></script>
+    <script>
+        let cameraFeed = document.getElementById('cameraFeed');
+        const takePictureButton = document.getElementById('takePictureButton');
+        const recognizedText = document.getElementById('recognizedText');
+
+        let currentCamera = 'environment'; // Default to rear camera
+
+        async function startCamera() {
+            try {
+                const constraints = { video: { facingMode: currentCamera } };
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                cameraFeed.srcObject = stream;
+
+                // Initialize Tesseract.js
+                const worker = await Tesseract.createWorker({
+                    logger: m => console.log(m),
+                });
+
+                //await worker.load();
+                await worker.loadLanguage('eng');
+                await worker.initialize('eng');
+
+                takePictureButton.addEventListener('click', async () => {
+                    try {
+                        const { videoWidth, videoHeight } = cameraFeed;
+                        cameraFeed.setAttribute('width', videoWidth);
+                        cameraFeed.setAttribute('height', videoHeight);
+                        const canvas = document.createElement('canvas');
+                        const context = canvas.getContext('2d');
+                        canvas.width = videoWidth;
+                        canvas.height = videoHeight;
+
+                        context.drawImage(cameraFeed, 0, 0, videoWidth, videoHeight);
+                        const imageDataUrl = canvas.toDataURL('image/jpeg');
+
+                        // Recognize text from the captured image
+                        const { data } = await worker.recognize(imageDataUrl);
+                        const text = data.text.trim();
+
+                        // Display the recognized text in the text box
+                        recognizedText.value = text;
+                    } catch (error) {
+                        console.error('Error capturing image or performing OCR:', error);
+                    }
+                });
+            } catch (error) {
+                console.error('Error accessing the camera:', error);
+            }
+        }
+
+        // Start the camera when the page loads
+        window.onload = startCamera;
+
+        // Switch between front and rear cameras
+        const switchCameraButton = document.getElementById('switchCameraButton');
+        switchCameraButton.addEventListener('click', async () => {
+            currentCamera = currentCamera === 'environment' ? 'user' : 'environment';
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: currentCamera } });
+            cameraFeed.srcObject = stream;
+        });
+    </script>
+</body>
+</html>
